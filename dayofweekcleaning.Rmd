@@ -1,0 +1,96 @@
+---
+title: "Data Cleaning"
+output: html_notebook
+---
+
+Project 
+https://www.drivendata.org/competitions/51/electricity-prediction-machine-learning/page/101/#metric
+
+```{r}
+
+library(dplyr); library(readr); library(stringr); library(tcltk); library(lubridate)
+sub_freq <- read.csv("C:/Users/Meghan Clark/Desktop/Machine Learning/energy data/submission_frequency.csv")
+#ids: ForecastId, ForecastPeriodNS
+#6974 rows
+
+sub_format <- read.csv("C:/Users/Meghan Clark/Desktop/Machine Learning/energy data/submission_format.csv")
+#ids: obs_id, SiteId, Timestamp, ForecastId, Value
+#1,309,176 rows
+
+metadata <- read.csv("C:/Users/Meghan Clark/Desktop/Machine Learning/energy data/metadata.csv")
+#ids: SiteID, Surface, Sampling, BaseTemperature, MondayIsDayOff, TuesdayIsDayOff, WednesdayIsDayOff, ThursdayIsDayOff, FridayIsDayOff, SaturdayIsDayOff, SundayIsDayOff
+#267 rows
+
+holidays <- read.csv("C:/Users/Meghan Clark/Desktop/Machine Learning/energy data/holidays.csv")
+#ids: X, Date, Holiday, SiteId
+#8387 rows
+
+train <- read.csv("C:/Users/Meghan Clark/Desktop/Machine Learning/energy data/train.csv")
+#ids: obs_id (timestamp), SiteId (305), Timestamp, ForecastId, Value
+#6,559,830 rows
+
+weather <- read.csv("C:/Users/Meghan Clark/Desktop/Machine Learning/energy data/weather.csv")
+
+```
+
+```{r}
+
+
+train$Timestamp <- as.character(train$Timestamp) %>% str_sub(., 1, str_length(.)-9)
+holidays$Holiday <- "True"
+colnames(holidays)[2] <- "Timestamp"
+holidays$Timestamp <- as.character(holidays$Timestamp)
+holidays2 <- holidays %>% select(c("Timestamp", "Holiday", "SiteId")) %>% distinct()
+formatholiday <- right_join(holidays2, train, by = c( "Timestamp", "SiteId" )) 
+
+formatholiday$Day <- weekdays(as.Date(formatholiday$Timestamp))
+
+
+#Divide by Day Join by SiteId and keep IsXDayXOff 
+mtrain <- formatholiday %>% subset(Day == "Monday")
+mmetadata <- metadata %>% select(c(SiteId, MondayIsDayOff))
+mtrain2 <- left_join(mtrain, mmetadata)
+colnames(mtrain2)[8] <- "Closed"
+
+ttrain <- formatholiday %>% subset(Day == "Tuesday")
+tmetadata <- metadata %>% select(c(SiteId, TuesdayIsDayOff))
+ttrain2 <- left_join(ttrain, tmetadata)
+colnames(ttrain2)[8] <- "Closed"
+
+wtrain <- formatholiday %>% subset(Day == "Wednesday")
+wmetadata <- metadata %>% select(c(SiteId, WednesdayIsDayOff))
+wtrain2 <- left_join(wtrain, wmetadata)
+colnames(wtrain2)[8] <- "Closed"
+
+thtrain <- formatholiday %>% subset(Day == "Thursday")
+thmetadata <- metadata %>% select(c(SiteId, ThursdayIsDayOff))
+thtrain2 <- left_join(thtrain, thmetadata)
+colnames(thtrain2)[8] <- "Closed"
+
+ftrain <- formatholiday %>% subset(Day =="Friday")
+fmetadata <- metadata %>% select(c(SiteId, FridayIsDayOff))
+ftrain2 <- left_join(ftrain, fmetadata)
+colnames(ftrain2)[8] <- "Closed"
+
+strain <- formatholiday %>% subset(Day =="Saturday")
+smetadata <- metadata %>% select(c(SiteId, FridayIsDayOff))
+strain2 <- left_join(strain, smetadata)
+colnames(strain2)[8] <- "Closed"
+
+suntrain <- formatholiday %>% subset(Day == "Sunday")
+sunmetadata <- metadata %>% select(c(SiteId, FridayIsDayOff))
+suntrain2 <- left_join(suntrain, sunmetadata)
+colnames(suntrain2)[8] <- "Closed"
+
+xmatrix <- rbind(mtrain2, ttrain2, wtrain2, thtrain2, ftrain2, strain2, suntrain2)
+xmatrix <- as.data.frame(xmatrix)
+
+#xmatrix$Closed <- paste(xmatrix[,2] ,xmatrix[,8])
+#xmatrix$Closed <- plyr::mapvalues(xmatrix$Closed, from = c("NA False", "NA True", "True False"), to = c("False", "True", "True"))
+#xmatrix$Holiday <- NULL
+
+
+write.csv(xmatrix, 'xmatrix.csv')
+```
+
+
